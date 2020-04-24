@@ -2,7 +2,7 @@ from time import time
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import python_lightning as pl
+import pytorch_lightning as pl
 def preproc_data():
     from data import split_data
     split_data('../data/hin-eng/hin.txt', '../data/hin-eng')
@@ -15,26 +15,26 @@ def gen_model_loaders(config):
 
     pad_sequence = PadSequence(tokenizers.src.pad_token_id, tokenizers.tgt.pad_token_id)
 
-    #train_loader = DataLoader(IndicDataset(tokenizers.src, tokenizers.tgt, config.data, True), 
+    """train_loader = DataLoader(IndicDataset(tokenizers.src, tokenizers.tgt, config.data, True), 
                             batch_size=config.batch_size, 
                             shuffle=False, 
                             collate_fn=pad_sequence)
-    #eval_loader = DataLoader(IndicDataset(tokenizers.src, tokenizers.tgt, config.data, False), 
+    eval_loader = DataLoader(IndicDataset(tokenizers.src, tokenizers.tgt, config.data, False), 
                            batch_size=config.eval_size, 
                            shuffle=False, 
-                           collate_fn=pad_sequence)
+                           collate_fn=pad_sequence)"""
     return model, tokenizers
     #, train_loader, eval_loader
 
-from train_util import run_train
+#from train_util import run_train
 from config import replace, preEnc, preEncDec
 
 def main():
     rconf = preEncDec
-    model, tokenizers, train_loader, eval_loader = gen_model_loaders(rconf)
+    model, tokenizers= gen_model_loaders(rconf)
     writer = SummaryWriter(rconf.log_dir)
     trainer = pl.Trainer()
-    trainer.fit(TranslationModel)
+    trainer.fit(model)
     #train_losses, val_losses, val_accs = run_train(rconf, model, train_loader, eval_loader, writer)
 
     model.save(tokenizers, rconf.model_output_dirs)
