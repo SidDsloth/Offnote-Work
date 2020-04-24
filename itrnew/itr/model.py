@@ -6,13 +6,15 @@ from easydict import EasyDict as ED
 from torch.utils.data import DataLoader
 class TranslationModel(pl.LightningModule):
 
-    def __init__(self, encoder, decoder):
+    def __init__(self, encoder, decoder,config,tokenizers):
 
         super().__init__() 
 
         #Creating encoder and decoder with their respective embeddings.
         self.encoder = encoder
         self.decoder = decoder
+        self.config = config
+        self.tokenizers = tokenizers
 
     def forward(self, encoder_input_ids, decoder_input_ids):
 
@@ -43,10 +45,7 @@ class TranslationModel(pl.LightningModule):
       from train_util import save_model
       save_model(self.encoder, output_dirs.encoder)
       save_model(self.decoder, output_dirs.decoder)
-    def configure_optimizers(self):
-      optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-      scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader), eta_min=config.lr)
-      return optimizer, scheduler
+   
     def training_step(self,batch):
       source,target=batch
       loss, logits = self.forward(source, target)
@@ -72,17 +71,24 @@ class TranslationModel(pl.LightningModule):
       print("Avg Val Accuracy: {0:.2f}".format(avg_valid_acc))
       print("Time taken by epoch: {0:.2f}".format(time.time() - start_time))
       """
+    @pl.data_loader
     def train_dataloader(self):
-      return DataLoader(IndicDataset(tokenizers.src, tokenizers.tgt, config.data, True), 
-                            batch_size=config.batch_size, 
+      return DataLoader(IndicDataset(self.tokenizers.src,self.tokenizers.tgt,self.config.data, True), 
+                            batch_size=self.config.batch_size, 
                             shuffle=False, 
                             collate_fn=pad_sequence)
 
+    @pl.data_loader
     def val_dataloader(self):
-      return DataLoader(IndicDataset(tokenizers.src, tokenizers.tgt, config.data, False), 
-                           batch_size=config.eval_size, 
+      return DataLoader(IndicDataset(self.tokenizers.src,self.tokenizers.tgt,self.config.data, False), 
+                           batch_size=self.config.eval_size, 
                            shuffle=False, 
                            collate_fn=pad_sequence)
+     def configure_optimizers(self):
+      optimizer = torch.optim.Adam(self.parameters(), lr=self.config.lr)
+      scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_dataloader()), eta_min=self.config.lr)
+      return optimizer, scheduler
+
 def build_model(config):
     
     src_tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
@@ -129,11 +135,11 @@ def build_model(config):
     
     decoder = BertForMaskedLM(decoder_config)
     decoder.set_input_embeddings(decoder_embeddings.cuda())
-
-    model = TranslationModel(encoder, decoder)
-    model.cuda()
-
-
+    
     tokenizers = ED({'src': src_tokenizer, 'tgt': tgt_tokenizer})
+    
+    model = TranslationModel(encoder, decoder,config,tokenizers)
+    model.cuda()
+    
     return model, tokenizers
 
